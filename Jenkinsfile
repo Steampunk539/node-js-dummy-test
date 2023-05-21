@@ -17,6 +17,7 @@ pipeline {
         stage("misc") {
           
             parallel {
+                
               stage("test") {
                 steps {
                     sh 'echo "Testing..."'
@@ -26,15 +27,31 @@ pipeline {
               
               stage("deploy") {
                 steps {
-                    sh 'echo "Deploying..."'
-                    sh 'docker build -f deploy.DockerFile -t dummy-publish .'
+                    script {
+                        try {
+                            timeout(time: 10, unit: 'SECONDS') {
+                                sh 'echo "Deploying..."'
+                                sh 'docker build -f deploy.DockerFile -t dummy-deploy .'
+                            }
+                        } catch (Exception e) {
+                            echo e.toString()
+                            if (e.toString() == "org.jenkinsci.plugins.workflow.steps.FlowInterruptedException") {
+                                echo 'Success!'
+                            } else {
+                                throw new Exception(e.toString())
+                            }
+                        }
+                    }
                 }
               }
               
               stage("publish") {
                 steps {
-                    sh 'echo "publish..."'
-                    sh 'docker build -f publish.DockerFile -t dummy-publish .'
+                  dir ('./artifact') {
+                      sh 'echo "Publishing..."'
+                      sh 'docker run -v $PWD:/vol-publish dummy-build:latest bash -c \"npm pack /node-js-dummy-test --pack-destination=/vol-publish/\" '
+                      archiveArtifacts artifacts: '*.tgz'
+                  }
                 }
               }
             }
