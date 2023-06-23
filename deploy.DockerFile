@@ -1,3 +1,5 @@
 FROM dummy-build 
 
-RUN npm start
+EXPOSE 3000
+
+CMD ["sh", "-c", "npm start"] 
